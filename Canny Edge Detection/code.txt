@@ -1,0 +1,286 @@
+classdef app1 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                   matlab.ui.Figure
+        GridLayout                 matlab.ui.container.GridLayout
+        LeftPanel                  matlab.ui.container.Panel
+        T_highSlider               matlab.ui.control.Slider
+        T_highSliderLabel          matlab.ui.control.Label
+        GaussianFilterSlider       matlab.ui.control.Slider
+        GaussianFilterSliderLabel  matlab.ui.control.Label
+        Hyperlink                  matlab.ui.control.Hyperlink
+        EdgesButton                matlab.ui.control.Button
+        T_lowSlider                matlab.ui.control.Slider
+        T_lowSliderLabel           matlab.ui.control.Label
+        LoadButton                 matlab.ui.control.Button
+        RightPanel                 matlab.ui.container.Panel
+        DescriptionTextArea        matlab.ui.control.TextArea
+        DescriptionTextAreaLabel   matlab.ui.control.Label
+        aligncenterEdgeDetectionusingCannyAlgorithmalignLabel  matlab.ui.control.Label
+        UIAxes                     matlab.ui.control.UIAxes
+    end
+
+    % Properties that correspond to apps with auto-reflow
+    properties (Access = private)
+        onePanelWidth = 576;
+    end
+
+    
+    properties (Access = private)
+        a 
+        % Description
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button down function: UIAxes
+        function UIAxesButtonDown(app, event)
+            
+        end
+
+        % Button pushed function: LoadButton
+        function LoadButtonPushed(app, event)
+            [f, p]=uigetfile();
+            app.a=fullfile(p,f);
+            
+            imshow(imread(app.a),"parent",app.UIAxes);
+        end
+
+        % Value changed function: T_highSlider
+        function T_highSliderValueChanged(app, event)
+            value = app.T_highSlider.Value;
+            
+        end
+
+        % Value changed function: T_lowSlider
+        function T_lowSliderValueChanged(app, event)
+            value = app.T_lowSlider.Value;
+            
+        end
+
+        % Button pushed function: EdgesButton
+        function EdgesButtonPushed(app, event)
+            img=imread(app.a);
+            img=0.2989*img(:,:,1) + 0.5870*img(:,:,2) + 0.1140*img(:,:,3);
+
+%gaussian kernel
+n=17;
+k=(n-1)/2;
+g=app.GaussianFilterSlider.Value;
+H=zeros(5);
+for i=(1:n)
+for j=(1:n)
+H(i, j)=(1/(2*3.14*g))*exp(-(((i-(k+1))^2)+((j-(k+1))^2))/2*g.*2);
+end
+end
+
+%applying gaussian filter
+H = H/sum(H(:)); % normalize the filter
+gimg=conv2(im2double(img),H,"same");
+
+%intensity gradient
+
+[Gx ,Gy]=imgradientxy(gimg);
+l1=sqrt(Gx.*Gx + Gy.*Gy);
+%gradient magnitude by euclidean distance
+
+%l=nonmaxsup2d(l1);
+% 
+% double thresholding
+Bg = mat2gray(imgradient(l1));
+%T_high = 0.45;
+Bg_mask_high = Bg > app.T_highSlider.Value;
+%T_low = 0.25;
+Bg_mask_low = Bg > app.T_lowSlider.Value;
+Bg_mask_double = imreconstruct(Bg_mask_high,Bg_mask_low);
+imshow(Bg_mask_double,"parent",app.UIAxes);
+        end
+
+        % Value changed function: GaussianFilterSlider
+        function GaussianFilterSliderValueChanged(app, event)
+            value = app.GaussianFilterSlider.Value;
+            
+        end
+
+        % Changes arrangement of the app based on UIFigure width
+        function updateAppLayout(app, event)
+            currentFigureWidth = app.UIFigure.Position(3);
+            if(currentFigureWidth <= app.onePanelWidth)
+                % Change to a 2x1 grid
+                app.GridLayout.RowHeight = {480, 480};
+                app.GridLayout.ColumnWidth = {'1x'};
+                app.RightPanel.Layout.Row = 2;
+                app.RightPanel.Layout.Column = 1;
+            else
+                % Change to a 1x2 grid
+                app.GridLayout.RowHeight = {'1x'};
+                app.GridLayout.ColumnWidth = {220, '1x'};
+                app.RightPanel.Layout.Row = 1;
+                app.RightPanel.Layout.Column = 2;
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.AutoResizeChildren = 'off';
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.UIFigure);
+            app.GridLayout.ColumnWidth = {220, '1x'};
+            app.GridLayout.RowHeight = {'1x'};
+            app.GridLayout.ColumnSpacing = 0;
+            app.GridLayout.RowSpacing = 0;
+            app.GridLayout.Padding = [0 0 0 0];
+            app.GridLayout.Scrollable = 'on';
+
+            % Create LeftPanel
+            app.LeftPanel = uipanel(app.GridLayout);
+            app.LeftPanel.BackgroundColor = [0.8 0.8 0.8];
+            app.LeftPanel.Layout.Row = 1;
+            app.LeftPanel.Layout.Column = 1;
+
+            % Create LoadButton
+            app.LoadButton = uibutton(app.LeftPanel, 'push');
+            app.LoadButton.ButtonPushedFcn = createCallbackFcn(app, @LoadButtonPushed, true);
+            app.LoadButton.BackgroundColor = [0.902 0.902 0.902];
+            app.LoadButton.FontSize = 14;
+            app.LoadButton.FontWeight = 'bold';
+            app.LoadButton.Position = [73 382 118 39];
+            app.LoadButton.Text = 'Load';
+
+            % Create T_lowSliderLabel
+            app.T_lowSliderLabel = uilabel(app.LeftPanel);
+            app.T_lowSliderLabel.HorizontalAlignment = 'right';
+            app.T_lowSliderLabel.Position = [4 227 42 22];
+            app.T_lowSliderLabel.Text = 'T_low';
+
+            % Create T_lowSlider
+            app.T_lowSlider = uislider(app.LeftPanel);
+            app.T_lowSlider.Limits = [0 1];
+            app.T_lowSlider.ValueChangedFcn = createCallbackFcn(app, @T_lowSliderValueChanged, true);
+            app.T_lowSlider.Position = [58 236 148 3];
+
+            % Create EdgesButton
+            app.EdgesButton = uibutton(app.LeftPanel, 'push');
+            app.EdgesButton.ButtonPushedFcn = createCallbackFcn(app, @EdgesButtonPushed, true);
+            app.EdgesButton.BackgroundColor = [0.902 0.902 0.902];
+            app.EdgesButton.FontSize = 14;
+            app.EdgesButton.FontWeight = 'bold';
+            app.EdgesButton.Position = [75 74 118 46];
+            app.EdgesButton.Text = 'Edges';
+
+            % Create Hyperlink
+            app.Hyperlink = uihyperlink(app.LeftPanel);
+            app.Hyperlink.URL = 'https://prezi.com/i/xjqip5if4ajk/';
+            app.Hyperlink.HorizontalAlignment = 'center';
+            app.Hyperlink.FontSize = 18;
+            app.Hyperlink.FontAngle = 'italic';
+            app.Hyperlink.Position = [15 9 200 22];
+            app.Hyperlink.Text = 'Canny Edge Algorithm';
+
+            % Create GaussianFilterSliderLabel
+            app.GaussianFilterSliderLabel = uilabel(app.LeftPanel);
+            app.GaussianFilterSliderLabel.HorizontalAlignment = 'right';
+            app.GaussianFilterSliderLabel.Position = [7 344 35 22];
+            app.GaussianFilterSliderLabel.Text = 'Gaussian Filter';
+
+            % Create GaussianFilterSlider
+            app.GaussianFilterSlider = uislider(app.LeftPanel);
+            app.GaussianFilterSlider.Limits = [0 10];
+            app.GaussianFilterSlider.ValueChangedFcn = createCallbackFcn(app, @GaussianFilterSliderValueChanged, true);
+            app.GaussianFilterSlider.Position = [63 353 145 3];
+
+            % Create T_highSliderLabel
+            app.T_highSliderLabel = uilabel(app.LeftPanel);
+            app.T_highSliderLabel.HorizontalAlignment = 'right';
+            app.T_highSliderLabel.Position = [1 284 42 22];
+            app.T_highSliderLabel.Text = 'T_high';
+
+            % Create T_highSlider
+            app.T_highSlider = uislider(app.LeftPanel);
+            app.T_highSlider.Limits = [0 1];
+            app.T_highSlider.ValueChangedFcn = createCallbackFcn(app, @T_highSliderValueChanged, true);
+            app.T_highSlider.Position = [64 293 150 3];
+
+            % Create RightPanel
+            app.RightPanel = uipanel(app.GridLayout);
+            app.RightPanel.BackgroundColor = [0.902 0.902 0.902];
+            app.RightPanel.Layout.Row = 1;
+            app.RightPanel.Layout.Column = 2;
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.RightPanel);
+            title(app.UIAxes, 'Image')
+            app.UIAxes.XTick = [];
+            app.UIAxes.YTick = [];
+            app.UIAxes.ButtonDownFcn = createCallbackFcn(app, @UIAxesButtonDown, true);
+            app.UIAxes.Position = [1 148 391 273];
+
+            % Create aligncenterEdgeDetectionusingCannyAlgorithmalignLabel
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel = uilabel(app.RightPanel);
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.Interpreter = 'html';
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.HorizontalAlignment = 'center';
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.FontName = 'Bell MT';
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.FontSize = 28;
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.FontWeight = 'bold';
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.FontAngle = 'italic';
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.FontColor = [0 0 1];
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.Position = [6 420 408 37];
+            app.aligncenterEdgeDetectionusingCannyAlgorithmalignLabel.Text = 'Canny Edge Detector';
+
+            % Create DescriptionTextAreaLabel
+            app.DescriptionTextAreaLabel = uilabel(app.RightPanel);
+            app.DescriptionTextAreaLabel.HorizontalAlignment = 'right';
+            app.DescriptionTextAreaLabel.FontWeight = 'bold';
+            app.DescriptionTextAreaLabel.Position = [58 125 71 24];
+            app.DescriptionTextAreaLabel.Text = 'Description';
+
+            % Create DescriptionTextArea
+            app.DescriptionTextArea = uitextarea(app.RightPanel);
+            app.DescriptionTextArea.FontSize = 16;
+            app.DescriptionTextArea.Position = [128 8 275 141];
+            app.DescriptionTextArea.Value = {'Canny edge detection is a technique to extract useful structural information from different vision objects and dramatically reduce the amount of data to be processed. It has been widely applied in various computer vision systems. Canny has found that the requirements for the application of edge detection on diverse vision systems are relatively similar. Thus, an edge detection solution to address these requirements can be implemented in a wide range of situations.'; ''; 'Process:'; ''; 'The process of Canny edge detection algorithm can be broken down to five different steps:'; ''; 'Apply Gaussian filter to smooth the image in order to remove the noise'; ''; 'Find the intensity gradients of the image'; ''; 'Apply gradient magnitude thresholding or lower bound cut-off suppression to get rid of spurious response to edge detection'; ''; 'Apply double threshold to determine potential edges'; ''; 'Track edge by hysteresis: Finalize the detection of edges by suppressing all the other edges that are weak and not connected to strong edges.'};
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = app1
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
